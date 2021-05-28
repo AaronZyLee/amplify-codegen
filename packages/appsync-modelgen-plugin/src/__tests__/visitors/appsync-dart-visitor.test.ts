@@ -8,12 +8,17 @@ const buildSchemaWithDirectives = (schema: String): GraphQLSchema => {
   return buildSchema([schema, directives, scalars].join('\n'));
 };
 
-const getVisitor = (schema: string, selectedType?: string, generate: CodeGenGenerateEnum = CodeGenGenerateEnum.code) => {
+const getVisitor = (
+  schema: string,
+  selectedType?: string,
+  generate: CodeGenGenerateEnum = CodeGenGenerateEnum.code,
+  isTimestampFieldsAdded: boolean = false,
+) => {
   const ast = parse(schema);
   const builtSchema = buildSchemaWithDirectives(schema);
   const visitor = new AppSyncModelDartVisitor(
     builtSchema,
-    { directives, target: 'dart', scalars: DART_SCALAR_MAP },
+    { directives, target: 'dart', scalars: DART_SCALAR_MAP, isTimestampFieldsAdded },
     { selectedType, generate },
   );
   visit(ast, { leave: visitor });
@@ -38,7 +43,7 @@ describe('AppSync Dart Visitor', () => {
     it('should generate a class for a model with all optional fields except id field', () => {
       const schema = /* GraphQL */ `
         type SimpleModel @model {
-          id: ID!,
+          id: ID!
           name: String
           bar: String
         }
@@ -263,9 +268,9 @@ describe('AppSync Dart Visitor', () => {
           id: ID!
           status: Status
         }
-        enum Status { 
-          yes,
-          no,
+        enum Status {
+          yes
+          no
           maybe
         }
       `;
@@ -274,7 +279,7 @@ describe('AppSync Dart Visitor', () => {
         const generatedCode = getVisitor(schema, model).generate();
         expect(generatedCode).toMatchSnapshot();
       });
-    })
+    });
   });
 
   describe('Field tests', () => {
@@ -299,17 +304,17 @@ describe('AppSync Dart Visitor', () => {
       const schema = /* GraphQL */ `
         type TestEnumModel @model {
           id: ID!
-        
+
           enumVal: TestEnum!
-        
+
           nullableEnumVal: TestEnum
-        
+
           enumList: [TestEnum!]!
           enumNullableList: [TestEnum!]
           nullableEnumList: [TestEnum]!
           nullableEnumNullableList: [TestEnum]
         }
-        
+
         enum TestEnum {
           VALUE_ONE
           VALUE_TWO
@@ -339,7 +344,6 @@ describe('AppSync Dart Visitor', () => {
       const generatedCode = visitor.generate();
       expect(generatedCode).toMatchSnapshot();
     });
-
   });
 
   describe('Dart Specific Tests', () => {
@@ -371,7 +375,7 @@ describe('AppSync Dart Visitor', () => {
     it('should throw error when a reserved word of dart is used in graphql schema type name', () => {
       const schema = /* GraphQL */ `
         type class @model {
-          id: ID!,
+          id: ID!
           name: String!
         }
       `;
@@ -379,6 +383,20 @@ describe('AppSync Dart Visitor', () => {
       expect(visitor.generate).toThrowErrorMatchingInlineSnapshot(
         `"Type name 'class' is a reserved word in dart. Please use a non-reserved name instead."`,
       );
+    });
+  });
+
+  describe('read-only field tests', () => {
+    it('should generate the read-only timestamp fields when isTimestampFields is true', () => {
+      const schema = /* GraphQL */ `
+        type SimpleModel @model {
+          id: ID!
+          name: String
+        }
+      `;
+      const visitor = getVisitor(schema, undefined, CodeGenGenerateEnum.code, true);
+      const generatedCode = visitor.generate();
+      expect(generatedCode).toMatchSnapshot();
     });
   });
 });

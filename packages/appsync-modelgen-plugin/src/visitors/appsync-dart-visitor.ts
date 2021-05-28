@@ -1,4 +1,11 @@
-import { AppSyncModelVisitor, ParsedAppSyncModelConfig, RawAppSyncModelConfig, CodeGenModel, CodeGenField, CodeGenGenerateEnum } from './appsync-visitor';
+import {
+  AppSyncModelVisitor,
+  ParsedAppSyncModelConfig,
+  RawAppSyncModelConfig,
+  CodeGenModel,
+  CodeGenField,
+  CodeGenGenerateEnum,
+} from './appsync-visitor';
 import { DartDeclarationBlock } from '../languages/dart-declaration-block';
 import { CodeGenConnectionType } from '../utils/process-connections';
 import { indent, indentMultiline } from '@graphql-codegen/visitor-plugin-common';
@@ -20,8 +27,7 @@ export class AppSyncModelDartVisitor<
   TRawConfig extends RawAppSyncModelConfig = RawAppSyncModelConfig,
   TPluginConfig extends ParsedAppSyncModelConfig = ParsedAppSyncModelConfig
 > extends AppSyncModelVisitor<TRawConfig, TPluginConfig> {
-
-  generate() : string {
+  generate(): string {
     this.processDirectives();
     this.validateReservedKeywords();
     if (this._parsedConfig.generate === CodeGenGenerateEnum.loader) {
@@ -33,14 +39,16 @@ export class AppSyncModelDartVisitor<
   }
 
   protected validateReservedKeywords(): void {
-    Object.entries({...this.models, ...this.nonModels}).forEach(([name, obj]) => {
+    Object.entries({ ...this.models, ...this.nonModels }).forEach(([name, obj]) => {
       if (DART_RESERVED_KEYWORDS.includes(name)) {
         throw new Error(`Type name '${name}' is a reserved word in dart. Please use a non-reserved name instead.`);
       }
       obj.fields.forEach(field => {
         const fieldName = this.getFieldName(field);
         if (DART_RESERVED_KEYWORDS.includes(fieldName)) {
-          throw new Error(`Field name '${fieldName}' in type '${name}' is a reserved word in dart. Please use a non-reserved name instead.`);
+          throw new Error(
+            `Field name '${fieldName}' in type '${name}' is a reserved word in dart. Please use a non-reserved name instead.`,
+          );
         }
       });
     });
@@ -52,7 +60,7 @@ export class AppSyncModelDartVisitor<
         if (DART_RESERVED_KEYWORDS.includes(val)) {
           throw new Error(`Enum value '${val}' in enum '${name}' is a reserved word in dart. Please use a non-reserved name instead.`);
         }
-      })
+      });
     });
   }
 
@@ -66,10 +74,7 @@ export class AppSyncModelDartVisitor<
     //Ignore for file
     result.push(IGNORE_FOR_FILE);
     //Packages for import
-    const packageImports: string[] = [
-      'package:amplify_datastore_plugin_interface/amplify_datastore_plugin_interface',
-      ...modelNames
-    ];
+    const packageImports: string[] = ['package:amplify_datastore_plugin_interface/amplify_datastore_plugin_interface', ...modelNames];
     //Packages for export
     const packageExports: string[] = [...exportClasses];
     //Block body
@@ -77,55 +82,27 @@ export class AppSyncModelDartVisitor<
       .asKind('class')
       .withName(LOADER_CLASS_NAME)
       .implements([`${LOADER_CLASS_NAME}Interface`])
-      .addClassMember(
-        'version',
-        'String',
-        `"${this.computeVersion()}"`,
-        undefined,
-        ['override']
-      )
-      .addClassMember(
-        'modelSchemas',
-        'List<ModelSchema>',
-        `[${modelNames.map(m => `${m}.schema`).join(', ')}]`,
-        undefined,
-        ['override']
-      )
-      .addClassMember(
-        '_instance',
-        LOADER_CLASS_NAME,
-        `${LOADER_CLASS_NAME}()`,
-        { static: true, final: true }
-      )
-      .addClassMethod(
-        'get instance',
-        LOADER_CLASS_NAME,
-        [],
-        ' => _instance;',
-        { isBlock: false, isGetter: true, static: true }
+      .addClassMember('version', 'String', `"${this.computeVersion()}"`, undefined, ['override'])
+      .addClassMember('modelSchemas', 'List<ModelSchema>', `[${modelNames.map(m => `${m}.schema`).join(', ')}]`, undefined, ['override'])
+      .addClassMember('_instance', LOADER_CLASS_NAME, `${LOADER_CLASS_NAME}()`, { static: true, final: true })
+      .addClassMethod('get instance', LOADER_CLASS_NAME, [], ' => _instance;', { isBlock: false, isGetter: true, static: true });
+    //getModelTypeByModelName
+    if (modelNames.length) {
+      const getModelTypeImplStr = [
+        'switch(modelName) {',
+        ...modelNames.map(modelName => [`case "${modelName}": {`, `return ${modelName}.classType;`, '}', 'break;'].join('\n')),
+        'default: {',
+        'throw Exception("Failed to find model in model provider for model name: " + modelName);',
+        '}',
+        '}',
+      ].join('\n');
+      classDeclarationBlock.addClassMethod(
+        'getModelTypeByModelName',
+        'ModelType',
+        [{ type: 'String', name: 'modelName' }],
+        getModelTypeImplStr,
       );
-      //getModelTypeByModelName
-      if (modelNames.length) {
-        const getModelTypeImplStr = [
-          'switch(modelName) {',
-          ...modelNames.map(modelName => [
-              `case "${modelName}": {`,
-              `return ${modelName}.classType;`,
-              '}',
-              'break;'
-            ].join('\n')),
-          'default: {',
-          'throw Exception("Failed to find model in model provider for model name: " + modelName);',
-          '}',
-          '}'
-        ].join('\n');
-        classDeclarationBlock.addClassMethod(
-          'getModelTypeByModelName',
-          'ModelType',
-          [{type: 'String', name: 'modelName'}],
-          getModelTypeImplStr
-        );
-      }
+    }
 
     result.push(packageImports.map(p => `import '${p}.dart';`).join('\n'));
     result.push(packageExports.map(p => `export '${p}.dart';`).join('\n'));
@@ -143,11 +120,7 @@ export class AppSyncModelDartVisitor<
     //Enum
     Object.entries(this.getSelectedEnums()).forEach(([name, enumVal]) => {
       const body = Object.values(enumVal.values).join(',\n');
-      result.push([
-        `enum ${name} {`,
-        indentMultiline(body),
-        '}'
-      ].join('\n'));
+      result.push([`enum ${name} {`, indentMultiline(body), '}'].join('\n'));
     });
     return this.formatDartCode(result.join('\n\n'));
   }
@@ -185,15 +158,17 @@ export class AppSyncModelDartVisitor<
           usingCollection = true;
         }
         if (this.isModelType(f) || this.isEnumType(f)) {
-          usingOtherClass = true
+          usingOtherClass = true;
         }
       });
     });
-    return [
-      ...BASE_IMPORT_PACKAGES,
-      usingCollection ? COLLECTION_PACKAGE : '',
-      usingOtherClass ? `${LOADER_CLASS_NAME}.dart` : ''
-    ].filter(f => f).sort().map(pckg => `import '${pckg}';`).join('\n') + '\n';
+    return (
+      [...BASE_IMPORT_PACKAGES, usingCollection ? COLLECTION_PACKAGE : '', usingOtherClass ? `${LOADER_CLASS_NAME}.dart` : '']
+        .filter(f => f)
+        .sort()
+        .map(pckg => `import '${pckg}';`)
+        .join('\n') + '\n'
+    );
   }
 
   protected generateModelClass(model: CodeGenModel): string {
@@ -205,25 +180,13 @@ export class AppSyncModelDartVisitor<
       .withComment(`This is an auto generated class representing the ${model.name} type in your schema.`)
       .annotate(['immutable']);
     //model type field
-    classDeclarationBlock.addClassMember(
-      'classType',
-      '',
-      `const _${this.getModelName(model)}ModelType()`,
-      { static: true, const: true }
-    );
+    classDeclarationBlock.addClassMember('classType', '', `const _${this.getModelName(model)}ModelType()`, { static: true, const: true });
     //model fields
     model.fields.forEach(field => {
       this.generateModelField(field, '', classDeclarationBlock);
     });
     //getInstanceType
-    classDeclarationBlock.addClassMethod(
-      'getInstanceType',
-      '',
-      [],
-      ' => classType;',
-      { isBlock: false },
-      ['override']
-    );
+    classDeclarationBlock.addClassMethod('getInstanceType', '', [], ' => classType;', { isBlock: false }, ['override']);
     //getId
     this.generateGetIdMethod(model, classDeclarationBlock);
     //constructor
@@ -249,20 +212,14 @@ export class AppSyncModelDartVisitor<
       .asKind('class')
       .withName(`_${modelName}ModelType`)
       .extends([`ModelType<${modelName}>`]);
-    classDeclarationBlock.addClassMethod(
-      `_${modelName}ModelType`,
-      '',
-      [],
-      ';',
-      { const: true, isBlock: false }
-    );
+    classDeclarationBlock.addClassMethod(`_${modelName}ModelType`, '', [], ';', { const: true, isBlock: false });
     classDeclarationBlock.addClassMethod(
       'fromJson',
       modelName,
-      [{name: 'jsonData', type: 'Map<String, dynamic>'}],
+      [{ name: 'jsonData', type: 'Map<String, dynamic>' }],
       `return ${modelName}.fromJson(jsonData);`,
       undefined,
-      ['override']
+      ['override'],
     );
     return classDeclarationBlock.string;
   }
@@ -279,97 +236,64 @@ export class AppSyncModelDartVisitor<
     classDeclarationBlock.addClassMember(fieldName, fieldType, value, { final: true });
   }
 
-  protected generateGetIdMethod(model: CodeGenModel, declarationBlock: DartDeclarationBlock) : void {
-    declarationBlock.addClassMethod(
-      'getId',
-      'String',
-      [],
-      'return id;',
-      {},
-      ['override']
-    );
+  protected generateGetIdMethod(model: CodeGenModel, declarationBlock: DartDeclarationBlock): void {
+    declarationBlock.addClassMethod('getId', 'String', [], 'return id;', {}, ['override']);
   }
 
-  protected generateConstructor(model: CodeGenModel, declarationBlock: DartDeclarationBlock) : void {
+  protected generateConstructor(model: CodeGenModel, declarationBlock: DartDeclarationBlock): void {
     //Model._internal
-    const args = `{${model.fields.map(f =>
-      `${this.isFieldRequired(f) ? '@required ' : ''}this.${this.getFieldName(f)}`
-    ).join(', ')}}`
-    declarationBlock.addClassMethod(
-      `${this.getModelName(model)}._internal`,
-      '',
-      [{name: args}],
-      ';',
-      { const: true, isBlock: false },
-    );
+    const args = `{${model.fields.map(f => `${this.isFieldRequired(f) ? '@required ' : ''}this.${this.getFieldName(f)}`).join(', ')}}`;
+    declarationBlock.addClassMethod(`${this.getModelName(model)}._internal`, '', [{ name: args }], ';', { const: true, isBlock: false });
     //factory Model
-    const returnParamStr = model.fields.map(field => {
-      const fieldName = this.getFieldName(field);
-      if (fieldName === 'id') {
-        return 'id: id == null ? UUID.getUUID() : id';
-      } else if (field.isList) {
-        return `${fieldName}: ${fieldName} != null ? List.unmodifiable(${fieldName}) : ${fieldName}`;
-      } else {
-        return `${fieldName}: ${fieldName}`;
-      }
-    }).join(',\n');
-    const factoryImpl = [
-      `return ${this.getModelName(model)}._internal(`,
-      indentMultiline(`${returnParamStr});`)
-    ].join('\n');
-    const factoryParam = `{${model.fields.map(f =>
-      `${this.getFieldName(f) !== 'id' && this.isFieldRequired(f) ? '@required ' : ''}${this.getNativeType(f)} ${this.getFieldName(f)}`
-    ).join(', ')}}`
-    declarationBlock.addClassMethod(
-      this.getModelName(model),
-      'factory',
-      [{name: factoryParam}],
-      factoryImpl
-    );
+    const returnParamStr = model.fields
+      .map(field => {
+        const fieldName = this.getFieldName(field);
+        if (fieldName === 'id') {
+          return 'id: id == null ? UUID.getUUID() : id';
+        } else if (field.isList) {
+          return `${fieldName}: ${fieldName} != null ? List.unmodifiable(${fieldName}) : ${fieldName}`;
+        } else {
+          return `${fieldName}: ${fieldName}`;
+        }
+      })
+      .join(',\n');
+    const factoryImpl = [`return ${this.getModelName(model)}._internal(`, indentMultiline(`${returnParamStr});`)].join('\n');
+    const factoryParam = `{${model.fields
+      .map(
+        f =>
+          `${this.getFieldName(f) !== 'id' && this.isFieldRequired(f) ? '@required ' : ''}${this.getNativeType(f)} ${this.getFieldName(f)}`,
+      )
+      .join(', ')}}`;
+    declarationBlock.addClassMethod(this.getModelName(model), 'factory', [{ name: factoryParam }], factoryImpl);
   }
 
-  protected generateEqualsMethodAndOperator(model: CodeGenModel, declarationBlock: DartDeclarationBlock) : void {
+  protected generateEqualsMethodAndOperator(model: CodeGenModel, declarationBlock: DartDeclarationBlock): void {
     //equals
-    declarationBlock.addClassMethod(
-      'equals',
-      'bool',
-      [{name: 'other', type: 'Object'}],
-      'return this == other;'
-    );
+    declarationBlock.addClassMethod('equals', 'bool', [{ name: 'other', type: 'Object' }], 'return this == other;');
     //operator ==
     const equalImpl = [
       'if (identical(other, this)) return true;',
       `return other is ${this.getModelName(model)} &&`,
-      indentMultiline(`${model.fields.map(f => {
-        const fieldName = this.getFieldName(f);
-        return f.isList
-          ? `DeepCollectionEquality().equals(${fieldName}, other.${fieldName})`
-          : `${fieldName} == other.${fieldName}`
-      }).join(' &&\n')};`)
+      indentMultiline(
+        `${model.fields
+          .map(f => {
+            const fieldName = this.getFieldName(f);
+            return f.isList ? `DeepCollectionEquality().equals(${fieldName}, other.${fieldName})` : `${fieldName} == other.${fieldName}`;
+          })
+          .join(' &&\n')};`,
+      ),
     ].join('\n');
-    declarationBlock.addClassMethod(
-      'operator ==',
-      'bool',
-      [{name: 'other', type: 'Object'}],
-      equalImpl,
-      undefined,
-      ['override']
-    );
+    declarationBlock.addClassMethod('operator ==', 'bool', [{ name: 'other', type: 'Object' }], equalImpl, undefined, ['override']);
   }
 
-  protected generateHashCodeMethod(model: CodeGenModel, declarationBlock: DartDeclarationBlock) : void {
+  protected generateHashCodeMethod(model: CodeGenModel, declarationBlock: DartDeclarationBlock): void {
     //hashcode
-    declarationBlock.addClassMethod(
-      `get hashCode`,
-      `int`,
-      undefined,
-      ' => toString().hashCode;',
-      { isGetter: true, isBlock: false },
-      ['override']
-    );
+    declarationBlock.addClassMethod(`get hashCode`, `int`, undefined, ' => toString().hashCode;', { isGetter: true, isBlock: false }, [
+      'override',
+    ]);
   }
 
-  protected generateToStringMethod(model: CodeGenModel, declarationBlock: DartDeclarationBlock) : void {
+  protected generateToStringMethod(model: CodeGenModel, declarationBlock: DartDeclarationBlock): void {
     //toString
     const fields = this.getNonConnectedField(model);
     declarationBlock.addClassMethod(
@@ -405,148 +329,144 @@ export class AppSyncModelDartVisitor<
                 toStringVal = `(${fieldName} != null ? ${fieldName}.toString() : "null")`;
             }
           }
-          if (index !== fields.length -1) {
+          if (index !== fields.length - 1) {
             return `buffer.write("${fieldName}=" + ${toStringVal} + "${fieldDelimiter}");`;
           }
           return `buffer.write("${fieldName}=" + ${toStringVal});`;
         }),
         `buffer.write("}");`,
         '',
-        'return buffer.toString();'
+        'return buffer.toString();',
       ].join('\n'),
       undefined,
-      ['override']
+      ['override'],
     );
   }
 
-  protected generateCopyWithMethod(model: CodeGenModel, declarationBlock: DartDeclarationBlock) : void {
+  protected generateCopyWithMethod(model: CodeGenModel, declarationBlock: DartDeclarationBlock): void {
     //copyWith
-    const copyParam = `{${model.fields.map(f =>
-      `${this.getNativeType(f)} ${this.getFieldName(f)}`
-    ).join(', ')}}`
+    const copyParam = `{${model.fields.map(f => `${this.getNativeType(f)} ${this.getFieldName(f)}`).join(', ')}}`;
     declarationBlock.addClassMethod(
       'copyWith',
       this.getModelName(model),
-      [{name: copyParam}],
+      [{ name: copyParam }],
       [
         `return ${this.getModelName(model)}(`,
-        indentMultiline(`${model.fields.map(field => {
-          const fieldName = this.getFieldName(field);
-          return `${fieldName}: ${fieldName} ?? this.${fieldName}`
-        }).join(',\n')});`)
-      ].join('\n')
+        indentMultiline(
+          `${model.fields
+            .map(field => {
+              const fieldName = this.getFieldName(field);
+              return `${fieldName}: ${fieldName} ?? this.${fieldName}`;
+            })
+            .join(',\n')});`,
+        ),
+      ].join('\n'),
     );
   }
 
-  protected generateSerializationMethod(model: CodeGenModel, declarationBlock: DartDeclarationBlock) : void {
+  protected generateSerializationMethod(model: CodeGenModel, declarationBlock: DartDeclarationBlock): void {
     //serialization: Model.fromJson
     const serializationImpl = `\n: ${indentMultiline(
-      model.fields.map(field => {
-        const fieldName = this.getFieldName(field);
-        //model type
-        if (this.isModelType(field)){
-          if (field.isList) {
+      model.fields
+        .map(field => {
+          const fieldName = this.getFieldName(field);
+          //model type
+          if (this.isModelType(field)) {
+            if (field.isList) {
+              return [
+                `${fieldName} = json['${fieldName}'] is List`,
+                indent(`? (json['${fieldName}'] as List)`),
+                indent(`.map((e) => ${this.getNativeType({ ...field, isList: false })}.fromJson(new Map<String, dynamic>.from(e)))`, 2),
+                indent(`.toList()`, 2),
+                indent(`: null`),
+              ].join('\n');
+            }
             return [
-              `${fieldName} = json['${fieldName}'] is List`,
-              indent(`? (json['${fieldName}'] as List)`),
-              indent(`.map((e) => ${this.getNativeType({...field, isList: false})}.fromJson(new Map<String, dynamic>.from(e)))`, 2),
-              indent(`.toList()`, 2),
-              indent(`: null`)
+              `${fieldName} = json['${fieldName}'] != null`,
+              indent(`? ${this.getNativeType(field)}.fromJson(new Map<String, dynamic>.from(json['${fieldName}']))`),
+              indent(`: null`),
             ].join('\n');
           }
-          return [
-            `${fieldName} = json['${fieldName}'] != null`,
-            indent(`? ${this.getNativeType(field)}.fromJson(new Map<String, dynamic>.from(json['${fieldName}']))`),
-            indent(`: null`)
-          ].join('\n');
+          //enum type
+          if (this.isEnumType(field)) {
+            if (field.isList) {
+              return [
+                `${fieldName} = json['${fieldName}'] is List`,
+                indent(`? (json['${fieldName}'] as List)`),
+                indent(`.map((e) => enumFromString<${field.type}>(e, ${field.type}.values))`, 2),
+                indent(`.toList()`, 2),
+                indent(`: null`),
+              ].join('\n');
+            }
+            return `${fieldName} = enumFromString<${field.type}>(json['${fieldName}'], ${field.type}.values)`;
+          }
+          //regular type
+          const fieldNativeType = this.getNativeType({ ...field, isList: false });
+          switch (fieldNativeType) {
+            case this.scalars['AWSDate']:
+            case this.scalars['AWSTime']:
+            case this.scalars['AWSDateTime']:
+              return field.isList
+                ? `${fieldName} = (json['${fieldName}'] as List)?.map((e) => ${fieldNativeType}.fromString(e))?.toList()`
+                : `${fieldName} = json['${fieldName}'] != null ? ${fieldNativeType}.fromString(json['${fieldName}']) : null`;
+            case this.scalars['AWSTimestamp']:
+              return field.isList
+                ? `${fieldName} = (json['${fieldName}'] as List)?.map((e) => ${fieldNativeType}.fromSeconds(e))?.toList()`
+                : `${fieldName} = json['${fieldName}'] != null ? ${fieldNativeType}.fromSeconds(json['${fieldName}']) : null`;
+            case this.scalars['Int']:
+              return field.isList
+                ? `${fieldName} = (json['${fieldName}'] as List<dynamic>)?.map((dynamic e) => e is double ? e.toInt() : e as int)?.toList()`
+                : `${fieldName} = json['${fieldName}']`;
+            default:
+              return field.isList
+                ? `${fieldName} = json['${fieldName}']?.cast<${this.getNativeType({ ...field, isList: false })}>()`
+                : `${fieldName} = json['${fieldName}']`;
+          }
+        })
+        .join(',\n'),
+    ).trim()};`;
+    declarationBlock.addClassMethod(
+      `${this.getModelName(model)}.fromJson`,
+      ``,
+      [{ name: 'json', type: 'Map<String, dynamic>' }],
+      indentMultiline(serializationImpl),
+      { isBlock: false },
+    );
+    //deserialization: toJson
+    const toJsonFields = model.fields
+      .map(field => {
+        const fieldName = this.getFieldName(field);
+        if (this.isModelType(field)) {
+          if (field.isList) {
+            return `'${fieldName}': ${fieldName}?.map((e) => e?.toJson())?.toList()`;
+          }
+          return `'${fieldName}': ${fieldName}?.toJson()`;
         }
-        //enum type
         if (this.isEnumType(field)) {
           if (field.isList) {
-            return [
-              `${fieldName} = json['${fieldName}'] is List`,
-              indent(`? (json['${fieldName}'] as List)`),
-              indent(`.map((e) => enumFromString<${field.type}>(e, ${field.type}.values))`, 2),
-              indent(`.toList()`, 2),
-              indent(`: null`)
-            ].join('\n');
+            return `'${fieldName}': ${fieldName}?.map((e) => enumToString(e))?.toList()`;
           }
-          return `${fieldName} = enumFromString<${field.type}>(json['${fieldName}'], ${field.type}.values)`;
+          return `'${fieldName}': enumToString(${fieldName})`;
         }
-        //regular type
-        const fieldNativeType = this.getNativeType({...field, isList: false});
+        const fieldNativeType = this.getNativeType({ ...field, isList: false });
         switch (fieldNativeType) {
           case this.scalars['AWSDate']:
           case this.scalars['AWSTime']:
           case this.scalars['AWSDateTime']:
             return field.isList
-              ? `${fieldName} = (json['${fieldName}'] as List)?.map((e) => ${fieldNativeType}.fromString(e))?.toList()`
-              : `${fieldName} = json['${fieldName}'] != null ? ${fieldNativeType}.fromString(json['${fieldName}']) : null`;
+              ? `'${fieldName}': ${fieldName}?.map((e) => e.format()).toList()`
+              : `'${fieldName}': ${fieldName}?.format()`;
           case this.scalars['AWSTimestamp']:
             return field.isList
-              ? `${fieldName} = (json['${fieldName}'] as List)?.map((e) => ${fieldNativeType}.fromSeconds(e))?.toList()`
-              : `${fieldName} = json['${fieldName}'] != null ? ${fieldNativeType}.fromSeconds(json['${fieldName}']) : null`;
-          case this.scalars['Int']:
-            return field.isList
-              ? `${fieldName} = (json['${fieldName}'] as List<dynamic>)?.map((dynamic e) => e is double ? e.toInt() : e as int)?.toList()`
-              : `${fieldName} = json['${fieldName}']`
+              ? `'${fieldName}': ${fieldName}?.map((e) => e.toSeconds()).toList()`
+              : `'${fieldName}': ${fieldName}?.toSeconds()`;
           default:
-            return field.isList
-              ? `${fieldName} = json['${fieldName}']?.cast<${this.getNativeType({...field, isList: false})}>()`
-              : `${fieldName} = json['${fieldName}']`;
+            return `'${fieldName}': ${fieldName}`;
         }
-      }).join(',\n')
-    ).trim()};`;
-    declarationBlock.addClassMethod(
-      `${this.getModelName(model)}.fromJson`,
-      ``,
-      [{name: 'json', type: 'Map<String, dynamic>'}],
-      indentMultiline(serializationImpl),
-      { isBlock: false }
-    );
-    //deserialization: toJson
-    const toJsonFields =model.fields.map(field => {
-      const fieldName = this.getFieldName(field);
-      if (this.isModelType(field)) {
-        if (field.isList) {
-          return `'${fieldName}': ${fieldName}?.map((e) => e?.toJson())?.toList()`
-        }
-        return `'${fieldName}': ${fieldName}?.toJson()`;
-      }
-      if (this.isEnumType(field)) {
-        if (field.isList) {
-          return `'${fieldName}': ${fieldName}?.map((e) => enumToString(e))?.toList()`;
-        }
-        return `'${fieldName}': enumToString(${fieldName})`;
-      }
-      const fieldNativeType = this.getNativeType({...field, isList: false});
-      switch (fieldNativeType) {
-        case this.scalars['AWSDate']:
-        case this.scalars['AWSTime']:
-        case this.scalars['AWSDateTime']:
-          return field.isList
-            ? `'${fieldName}': ${fieldName}?.map((e) => e.format()).toList()`
-            : `'${fieldName}': ${fieldName}?.format()`;
-        case this.scalars['AWSTimestamp']:
-          return field.isList
-            ? `'${fieldName}': ${fieldName}?.map((e) => e.toSeconds()).toList()`
-            : `'${fieldName}': ${fieldName}?.toSeconds()`;
-        default:
-          return `'${fieldName}': ${fieldName}`;
-      }
-    }).join(', ');
-    const deserializationImpl = [
-      ' => {',
-      indentMultiline(toJsonFields),
-      '};',
-    ].join('\n');
-    declarationBlock.addClassMethod(
-      'toJson',
-      'Map<String, dynamic>',
-      [],
-      deserializationImpl,
-      { isBlock: false }
-    );
+      })
+      .join(', ');
+    const deserializationImpl = [' => {', indentMultiline(toJsonFields), '};'].join('\n');
+    declarationBlock.addClassMethod('toJson', 'Map<String, dynamic>', [], deserializationImpl, { isBlock: false });
   }
 
   protected generateModelSchema(model: CodeGenModel, classDeclarationBlock: DartDeclarationBlock): void {
@@ -560,57 +480,53 @@ export class AppSyncModelDartVisitor<
     classDeclarationBlock.addBlock(schemaDeclarationBlock);
   }
 
-  protected generateQueryField(model: CodeGenModel, field: CodeGenField, declarationBlock: DartDeclarationBlock) : void {
+  protected generateQueryField(model: CodeGenModel, field: CodeGenField, declarationBlock: DartDeclarationBlock): void {
     const fieldName = this.getFieldName(field);
     const queryFieldName = this.getQueryFieldName(field);
     let value = `QueryField(fieldName: "${fieldName}")`;
     if (this.isModelType(field)) {
-      const modelName = this.getNativeType({...field, isList: false});
+      const modelName = this.getNativeType({ ...field, isList: false });
       value = [
         'QueryField(',
         indent(`fieldName: "${fieldName}",`),
-        indent(`fieldType: ModelFieldType(ModelFieldTypeEnum.model, ofModelName: (${modelName}).toString()))`)
+        indent(`fieldType: ModelFieldType(ModelFieldTypeEnum.model, ofModelName: (${modelName}).toString()))`),
       ].join('\n');
     } else if (fieldName === 'id') {
-      value = `QueryField(fieldName: "${lowerCaseFirst(model.name)}.id")`
+      value = `QueryField(fieldName: "${lowerCaseFirst(model.name)}.id")`;
     }
-    declarationBlock.addClassMember(
-      queryFieldName,
-      'QueryField',
-      value,
-      { static: true, final: true }
-    );
+    declarationBlock.addClassMember(queryFieldName, 'QueryField', value, { static: true, final: true });
   }
 
   protected getQueryFieldName(field: CodeGenField): string {
     return this.getFieldName(field).toUpperCase();
   }
 
-  protected generateSchemaField(model: CodeGenModel, declarationBlock: DartDeclarationBlock) : void {
+  protected generateSchemaField(model: CodeGenModel, declarationBlock: DartDeclarationBlock): void {
     const schema = [
       'Model.defineSchema(define: (ModelSchemaDefinition modelSchemaDefinition) {',
-      indentMultiline([
-        `modelSchemaDefinition.name = "${this.getModelName(model)}";\nmodelSchemaDefinition.pluralName = "${this.pluralizeModelName(model)}";`,
-        this.generateAuthRules(model),
-        this.generateAddFields(model)
-      ].filter(f => f).join('\n\n')),
-      '})'
+      indentMultiline(
+        [
+          `modelSchemaDefinition.name = "${this.getModelName(model)}";\nmodelSchemaDefinition.pluralName = "${this.pluralizeModelName(
+            model,
+          )}";`,
+          this.generateAuthRules(model),
+          this.generateAddFields(model),
+        ]
+          .filter(f => f)
+          .join('\n\n'),
+      ),
+      '})',
     ].join('\n');
-    declarationBlock.addClassMember(
-      'schema',
-      '',
-      schema,
-      { static: true, var: true }
-    );
+    declarationBlock.addClassMember('schema', '', schema, { static: true, var: true });
   }
 
-  protected generateAuthRules(model: CodeGenModel) : string {
+  protected generateAuthRules(model: CodeGenModel): string {
     const authDirectives: AuthDirective[] = model.directives.filter(d => d.name === 'auth') as AuthDirective[];
     if (authDirectives.length) {
       const rules: string[] = [];
       authDirectives.forEach(directive => {
         directive.arguments?.rules.forEach(rule => {
-          const authRule : string[] = [];
+          const authRule: string[] = [];
           const authStrategy = `authStrategy: AuthStrategy.${rule.allow.toUpperCase()}`;
           switch (rule.allow) {
             case AuthStrategy.owner:
@@ -635,13 +551,12 @@ export class AppSyncModelDartVisitor<
               printWarning(`Model has auth with authStrategy ${rule.allow} of which is not yet supported`);
               return '';
           }
-          authRule.push(['operations: [',
-                          indentMultiline(rule.operations.map(op => `ModelOperation.${op.toUpperCase()}`).join(',\n')),
-                          ']'
-                        ].join('\n'));
+          authRule.push(
+            ['operations: [', indentMultiline(rule.operations.map(op => `ModelOperation.${op.toUpperCase()}`).join(',\n')), ']'].join('\n'),
+          );
           rules.push(`AuthRule(\n${indentMultiline(authRule.join(',\n'))})`);
-        })
-      })
+        });
+      });
       if (rules.length) {
         return ['modelSchemaDefinition.authRules = [', indentMultiline(rules.join(',\n')), '];'].join('\n');
       }
@@ -649,9 +564,9 @@ export class AppSyncModelDartVisitor<
     return '';
   }
 
-  protected generateAddFields(model: CodeGenModel) : string {
+  protected generateAddFields(model: CodeGenModel): string {
     if (model.fields.length) {
-      const fieldsToAdd : string[] = [];
+      const fieldsToAdd: string[] = [];
       model.fields.forEach(field => {
         const fieldName = this.getFieldName(field);
         const modelName = this.getModelName(model);
@@ -663,14 +578,14 @@ export class AppSyncModelDartVisitor<
         }
         //field with @connection
         else if (field.connectionInfo) {
-          const connectedModelName = this.getNativeType({...field, isList: false});
+          const connectedModelName = this.getNativeType({ ...field, isList: false });
           switch (field.connectionInfo.kind) {
             case CodeGenConnectionType.HAS_ONE:
               fieldParam = [
                 `key: ${modelName}.${queryFieldName}`,
                 `isRequired: ${!field.isNullable}`,
                 `ofModelName: (${connectedModelName}).toString()`,
-                `associatedKey: ${connectedModelName}.${this.getQueryFieldName(field.connectionInfo.associatedWith)}`
+                `associatedKey: ${connectedModelName}.${this.getQueryFieldName(field.connectionInfo.associatedWith)}`,
               ].join(',\n');
               fieldsToAdd.push(['ModelFieldDefinition.hasOne(', indentMultiline(fieldParam), ')'].join('\n'));
               break;
@@ -679,7 +594,7 @@ export class AppSyncModelDartVisitor<
                 `key: ${modelName}.${queryFieldName}`,
                 `isRequired: ${!field.isNullable}`,
                 `ofModelName: (${connectedModelName}).toString()`,
-                `associatedKey: ${connectedModelName}.${this.getQueryFieldName(field.connectionInfo.associatedWith)}`
+                `associatedKey: ${connectedModelName}.${this.getQueryFieldName(field.connectionInfo.associatedWith)}`,
               ].join(',\n');
               fieldsToAdd.push(['ModelFieldDefinition.hasMany(', indentMultiline(fieldParam), ')'].join('\n'));
               break;
@@ -688,7 +603,7 @@ export class AppSyncModelDartVisitor<
                 `key: ${modelName}.${queryFieldName}`,
                 `isRequired: ${!field.isNullable}`,
                 `targetName: "${field.connectionInfo.targetName}"`,
-                `ofModelName: (${connectedModelName}).toString()`
+                `ofModelName: (${connectedModelName}).toString()`,
               ].join(',\n');
               fieldsToAdd.push(['ModelFieldDefinition.belongsTo(', indentMultiline(fieldParam), ')'].join('\n'));
               break;
@@ -696,11 +611,7 @@ export class AppSyncModelDartVisitor<
         }
         //field with regular types
         else {
-          const ofType = this.isEnumType(field)
-            ? '.enumeration'
-            : ( field.type in typeToEnumMap
-              ? typeToEnumMap[field.type]
-              : '.string' );
+          const ofType = this.isEnumType(field) ? '.enumeration' : field.type in typeToEnumMap ? typeToEnumMap[field.type] : '.string';
           const ofTypeStr = field.isList
             ? `ofType: ModelFieldType(ModelFieldTypeEnum.collection, ofModelName: describeEnum(ModelFieldTypeEnum${ofType}))`
             : `ofType: ModelFieldType(ModelFieldTypeEnum${ofType})`;
@@ -708,8 +619,11 @@ export class AppSyncModelDartVisitor<
             `key: ${modelName}.${queryFieldName}`,
             `isRequired: ${this.isFieldRequired(field)}`,
             field.isList ? 'isArray: true' : '',
-            ofTypeStr
-          ].filter(f => f).join(',\n');
+            field.isReadOnly ? 'isReadOnly: true' : '',
+            ofTypeStr,
+          ]
+            .filter(f => f)
+            .join(',\n');
           fieldsToAdd.push(['ModelFieldDefinition.field(', indentMultiline(fieldParam), ')'].join('\n'));
         }
       });
@@ -738,7 +652,7 @@ export class AppSyncModelDartVisitor<
    * Format the code following Dart style guidelines
    * @param dartCode
    */
-  protected formatDartCode(dartCode: string) : string {
+  protected formatDartCode(dartCode: string): string {
     const result = dartStyle.formatCode(dartCode);
     if (result.error) {
       throw new Error(result.error);
@@ -746,7 +660,7 @@ export class AppSyncModelDartVisitor<
     return result.code || '';
   }
 
-  protected isFieldRequired(field: CodeGenField) : boolean {
+  protected isFieldRequired(field: CodeGenField): boolean {
     return !((field.isNullable && !field.isList) || field.isListNullable);
   }
 }
